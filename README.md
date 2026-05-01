@@ -340,10 +340,10 @@ This project is submitted as a B.Tech Major Project and is released for academic
 If you use MedTalk or its EDAQ algorithm in your research, please cite:
 
 ```bibtex
-@techreport{tomar2026medtalk,
+@techreport{2026medtalk,
   title     = {MedTalk: Explanation-Driven Adaptive Questioning for 
                Responsible Interpretable AI Across Regulated Sectors},
-  author    = {Tomar, Ujjwal and Singhal, Yash and Singh, Tushar},
+  author    = {Singhal, Yash and Tomar, Ujjwal and Singh, Tushar},
   year      = {2026},
   month     = {May},
   institution = {KIET Group of Institutions, AKTU},
