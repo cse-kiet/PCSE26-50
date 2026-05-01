@@ -1,0 +1,72 @@
+# ============================================================
+# MedTalk: Explanation-Driven Adaptive Questioning (EDAQ)
+# Python Dependency File — requirements.txt
+# Institution : KIET Group of Institutions, Ghaziabad (AKTU)
+# Session     : 2025-2026
+# Python      : >= 3.9, < 3.12
+# Generated   : May 2026
+# ============================================================
+#
+# INSTALL:
+#   pip install --upgrade pip
+#   pip install -r requirements.txt
+#
+# NOTES:
+#   SHAP 0.42.x may show DeprecationWarning on Python 3.10+; suppress with -W ignore
+#   imbalanced-learn must match scikit-learn minor version
+# ============================================================
+
+# ─── Core Machine Learning ───────────────────────────────────────────────────
+scikit-learn>=1.3.0,<1.5.0          # Random Forest, preprocessing, metrics, calibration
+xgboost>=1.7.0,<2.1.0               # Gradient boosting baseline comparison
+imbalanced-learn>=0.11.0,<0.12.0    # SMOTE class balancing (must match sklearn)
+joblib>=1.3.0                        # Model serialisation (.pkl files)
+
+# ─── Explainability ──────────────────────────────────────────────────────────
+shap>=0.42.0,<0.44.0                 # SHAP TreeExplainer, force plots, waterfall plots
+lime>=0.2.0.1                        # LIME LimeTabularExplainer
+
+# ─── Data Processing ─────────────────────────────────────────────────────────
+pandas>=2.0.0,<2.3.0                 # DataFrames, CSV I/O
+numpy>=1.24.0,<1.27.0                # Numerical computing
+scipy>=1.10.0,<1.14.0                # Statistical tests, curve fitting
+
+# ─── Visualisation ───────────────────────────────────────────────────────────
+matplotlib>=3.7.0,<3.10.0            # Static plots (SHAP waterfall, confusion matrix)
+seaborn>=0.12.0,<0.14.0              # Statistical visualisation (heatmaps, distributions)
+plotly>=5.15.0,<5.25.0               # Interactive plots (ROC curves, calibration diagrams)
+
+# ─── Web Interface ───────────────────────────────────────────────────────────
+streamlit>=1.28.0,<1.38.0            # Streamlit web application framework
+streamlit-extras>=0.3.0              # Additional Streamlit components (optional)
+
+# ─── PDF / Reporting ─────────────────────────────────────────────────────────
+reportlab>=4.0.0,<4.3.0              # PDF report generation (audit log export)
+Pillow>=9.5.0,<10.5.0                # Image processing (embedding SHAP plots in PDF)
+
+# ─── Jupyter Notebook Support ────────────────────────────────────────────────
+jupyterlab>=4.0.0                    # JupyterLab interface
+notebook>=7.0.0                      # Classic Jupyter Notebook interface
+ipywidgets>=8.0.0                    # Interactive widgets in notebooks
+nbconvert>=7.0.0                     # Notebook export (HTML, PDF)
+
+# ─── Utilities ───────────────────────────────────────────────────────────────
+tqdm>=4.65.0                         # Progress bars (during model training)
+python-dotenv>=1.0.0                 # Environment variable management
+pyyaml>=6.0.1                        # YAML configuration file support
+jsonschema>=4.19.0                   # JSON schema validation for domain configs
+click>=8.1.0                         # CLI utilities (for training scripts)
+
+# ─── Testing ─────────────────────────────────────────────────────────────────
+pytest>=7.4.0                        # Unit testing framework
+pytest-cov>=4.1.0                    # Coverage reporting
+
+# ─── Code Quality ────────────────────────────────────────────────────────────
+black>=23.0.0                        # Code formatter
+flake8>=6.0.0                        # Linting
+isort>=5.12.0                        # Import sorting
+
+# ============================================================
+# OPTIONAL: GPU acceleration (not required; CPU is sufficient)
+# cupy-cuda12x>=12.0.0               # CUDA-accelerated NumPy (uncomment if GPU available)
+# ============================================================

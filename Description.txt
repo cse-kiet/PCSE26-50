@@ -1,0 +1,312 @@
+================================================================================
+                        PROJECT DESCRIPTION
+================================================================================
+
+Project Title  : MedTalk: Explanation-Driven Adaptive Questioning for
+                 Responsible Interpretable AI Across Regulated Sectors
+
+Document Type  : Project Description (Deliverable e)
+Prepared By    : Yash Singhal · Ujjwal Tomar · Tushar Singh
+Institution    : KIET Group of Institutions, Ghaziabad
+Supervisor     : Prof. Gaurav Parashar, Assistant Professor, CSE
+Date           : May 2026
+
+================================================================================
+
+SECTION 1 — BACKGROUND AND MOTIVATION
+================================================================================
+
+1.1  THE GLOBAL DIABETES CRISIS
+-------------------------------
+Diabetes mellitus is one of the most pressing chronic health crises of the
+21st century. According to the International Diabetes Federation (IDF) Atlas
+(2021), approximately 537 million adults globally were living with diabetes in
+2020, and this number is projected to reach 783 million by 2045. The annual
+global economic cost exceeds USD 1 trillion in direct and indirect healthcare
+expenditure. In India specifically, over 77 million adults are affected, making
+it the second-largest diabetic population worldwide.
+
+Type 2 diabetes, which accounts for over 90% of cases, is substantially
+preventable through early detection and lifestyle intervention. However,
+diagnostic processes remain largely reactive — dependent on expensive laboratory
+tests, specialist appointments, and clinician interpretation — placing enormous
+burden on overburdened healthcare systems.
+
+1.2  THE PROMISE AND PITFALL OF AI IN HEALTHCARE
+-------------------------------------------------
+Artificial Intelligence (AI) and Machine Learning (ML) offer transformative
+potential for early diabetes risk stratification. Classifiers trained on
+routine clinical features (e.g., BMI, glucose, blood pressure, age) can
+predict diabetes onset with accuracies exceeding 85–90%. However, the adoption
+of these tools in clinical practice has been severely limited by a fundamental
+problem: the "black box" nature of most ML models.
+
+Clinicians cannot audit WHY a model predicted high diabetes risk for a specific
+patient. Patients cannot understand the factors driving their personalised risk
+assessment. Regulatory bodies (FDA, EU AI Act, NICE) cannot formally validate
+opaque stochastic systems for use as Software as a Medical Device (SaMD). This
+gap between ML predictive capability and clinical usability is referred to as
+the "Interpretability Gap."
+
+1.3  EXISTING SOLUTIONS AND THEIR LIMITATIONS
+----------------------------------------------
+The most prominent attempt to bridge this gap is TalkToModel (Slack et al.,
+2023), a conversational XAI system that enables non-technical users to query
+ML models through natural language dialogue. TalkToModel achieved 82% clinician
+preference for dialogue over dashboards — validating the conversational
+interaction paradigm.
+
+However, TalkToModel fundamentally relies on Large Language Models (LLMs):
+the T5 transformer for semantic parsing and the BART language model for
+response generation. This LLM dependency introduces four critical limitations:
+
+  (1) HALLUCINATION RISK: LLMs are generative models — they produce fluent,
+      plausible text that may be factually incorrect. In clinical settings,
+      hallucinated medical claims (e.g., fabricated drug interactions, false
+      dosage recommendations) are directly dangerous to patient safety.
+
+  (2) POOR CALIBRATION: TalkToModel achieves a Brier Score of 0.189 —
+      significantly worse than MedTalk's 0.142. In risk stratification,
+      miscalibrated probabilities lead to systematic under- or over-treatment.
+
+  (3) REGULATORY MISALIGNMENT: FDA 510(k) submissions and EU AI Act Article 6
+      both require deterministic, auditable, formally validatable algorithms.
+      LLM outputs are stochastic (different each run) and cannot be formally
+      tested to specification.
+
+  (4) DOMAIN RIGIDITY: TalkToModel's dialogue policy is learned from data and
+      cannot encode hard regulatory constraints such as anti-redlining laws
+      (finance), sentencing guidelines (judiciary), or anti-discrimination
+      underwriting rules (insurance). Domain-specific safety requirements must
+      be guaranteed, not learned.
+
+
+SECTION 2 — WHAT IS MEDTALK?
+================================================================================
+
+MedTalk is a domain-agnostic, four-layer, deterministic conversational AI
+system that enables transparent, auditable, and interactive risk assessment
+across regulated sectors. It was designed, built, and validated by the
+undergraduate team as a B.Tech Major Project at KIET Group of Institutions.
+
+MedTalk's central thesis is: "Responsible AI is an engineering discipline,
+not a domain-specific afterthought." The same architectural principles that
+guarantee safe, interpretable dialogue in healthcare can be instantiated — with
+only configuration changes — in finance, judiciary, and insurance.
+
+2.1  CORE PRINCIPLES
+---------------------
+  • DETERMINISM: Every prediction from the same input produces the same output.
+    No stochastic LLM components. Fully reproducible for regulatory submission.
+
+  • TRANSPARENCY: The Random Forest prediction is explained via mathematically
+    grounded SHAP (Shapley values) and LIME local approximations, not opaque
+    neural generation.
+
+  • AUDITABILITY: Every user interaction (feature inputs → SHAP attributions →
+    EDAQ question selection → refined prediction) is logged in a complete
+    audit trail for clinical governance and regulatory review.
+
+  • CROSS-SECTOR PORTABILITY: Domain adaptation requires only (1) a question
+    template dictionary and (2) constraint rules — not model retraining.
+
+2.2  THE EDAQ INNOVATION
+-------------------------
+The Explanation-Driven Adaptive Questioning (EDAQ) algorithm is MedTalk's
+primary intellectual contribution. EDAQ addresses a fundamental limitation of
+static XAI dashboards: they present all features equally without guiding the
+clinician toward the most clinically relevant, actionable, and uncertain
+information for a specific patient.
+
+EDAQ dynamically generates the next most relevant follow-up question at each
+dialogue turn through a six-step process:
+
+  Step 1 — Feature Uncertainty Quantification:
+            Computes per-feature uncertainty scores using missing data rates
+            and ensemble prediction variance.
+
+  Step 2 — Impact-Threshold Filtering:
+            Features with |SHAP value| < 0.05 are excluded (noise floor).
+
+  Step 3 — Domain Constraint Filtering:
+            Protected attributes (race, gender, zip code as proxy) and non-
+            modifiable features are excluded per sector-specific rules.
+
+  Step 4 — Cross-Domain Semantic Mapping:
+            Feature names are mapped to sector-appropriate question templates
+            (e.g., "glucose" → "What was your last fasting blood glucose?" in
+            healthcare vs. "income" → "What is your household income?" in
+            finance).
+
+  Step 5 — Multi-Objective Prioritisation:
+            Candidates are ranked by: (SHAP impact × uncertainty) / response
+            burden, ensuring the highest-value questions are asked first.
+
+  Step 6 — Compliance Check:
+            A final fairness filter ensures no discriminatory question enters
+            the dialogue stream before presentation.
+
+EDAQ runs in under 100 milliseconds on standard CPU hardware — compared to
+TalkToModel's GPU-dependent 1,200ms inference time. This makes MedTalk
+deployable in resource-constrained settings: rural clinics, developing-nation
+judiciaries, and community credit unions.
+
+
+SECTION 3 — SYSTEM ARCHITECTURE
+================================================================================
+
+MedTalk is structured as four sequential, domain-agnostic processing layers:
+
+LAYER 1 — PREDICTION LAYER
+  Technology: Scikit-learn Random Forest (500 trees, max_depth=18)
+  Function  : Produces a calibrated probability of the target outcome
+              (e.g., P(diabetes=1) for a given patient feature vector)
+  Components:
+    • Data Preprocessing Pipeline (zero-value imputation, StandardScaler)
+    • SMOTE class balancing for skewed datasets
+    • RandomizedSearchCV hyperparameter optimisation (200 iterations)
+    • Platt Scaling post-hoc calibration
+
+LAYER 2 — ATTRIBUTION LAYER
+  Technology: SHAP (TreeExplainer) + LIME (LimeTabularExplainer)
+  Function  : Computes local feature importance for each individual prediction
+  Components:
+    • TreeSHAP for efficient, exact Shapley value computation on Random Forests
+    • LIME for model-agnostic local surrogate approximations
+    • Fidelity-Based Selection: selects SHAP or LIME based on which produces
+      higher local fidelity for a given sample
+
+LAYER 3 — ORCHESTRATION LAYER (EDAQ)
+  Technology: Pure Python rule-based algorithm
+  Function  : Transforms attributions into prioritised, domain-compliant,
+              actionable follow-up questions; manages multi-turn dialogue;
+              enforces fairness guardrails; maintains audit log
+  Components:
+    • EDAQ core algorithm (Algorithm 2)
+    • Explanation-Driven Risk Assessment orchestrator (Algorithm 1)
+    • Interactive Refinement with Fairness Guardrails (Algorithm 3)
+    • Audit Logger
+
+LAYER 4 — INTERFACE LAYER
+  Technology: Streamlit (Python web framework)
+  Function  : Patient-facing and clinician-facing web interface
+  Components:
+    • Feature input form (demographic + clinical fields)
+    • Risk visualisation (gauge, probability bar, risk category badge)
+    • SHAP waterfall plot (inline attribution visualisation)
+    • EDAQ question cards (interactive dialogue turns)
+    • Audit trail viewer (downloadable compliance log)
+    • Domain selector (healthcare / finance / judiciary / insurance)
+
+
+SECTION 4 — DATASETS
+================================================================================
+
+4.1  PRIMARY DATASET: PIMA INDIANS DIABETES DATASET (PIDD)
+------------------------------------------------------------
+  Source    : UCI Machine Learning Repository / NIDDK (National Institute of
+              Diabetes and Digestive and Kidney Diseases)
+  Records   : 768 female patients of Pima Indian heritage, aged ≥21
+  Features  : 8 clinical variables
+               • Pregnancies — Number of times pregnant
+               • Glucose — Plasma glucose concentration (2-hour OGTT)
+               • BloodPressure — Diastolic blood pressure (mm Hg)
+               • SkinThickness — Triceps skinfold thickness (mm)
+               • Insulin — 2-hour serum insulin (μU/ml)
+               • BMI — Body Mass Index (weight in kg / height in m²)
+               • DiabetesPedigreeFunction — Genetic risk score function
+               • Age — Patient age (years)
+  Target    : Outcome (0 = non-diabetic, 1 = diabetic)
+  Class Split: 65.1% non-diabetic (500) / 34.9% diabetic (268)
+  Note      : Zero values in Glucose, BloodPressure, SkinThickness, Insulin,
+              and BMI are physiologically implausible and are treated as missing.
+
+4.2  SECONDARY DATASETS (SYNTHETIC — CROSS-DOMAIN VALIDATION)
+--------------------------------------------------------------
+  Finance   : N=500 records; structure based on UCI German Credit Dataset;
+              features: age, income, employment_duration, credit_history,
+              loan_amount, loan_duration, housing_type
+  Judiciary : N=400 records; structure based on ProPublica COMPAS study;
+              features: age, charge_degree, prior_offenses, supervision_level
+  Insurance : N=350 records; typical underwriting features: age, BMI,
+              smoking_status, bmi, num_claims_prior, vehicle_age
+
+
+SECTION 5 — KEY RESULTS SUMMARY
+================================================================================
+
+5.1  Predictive Performance (PIDD, N=768)
+  ┌─────────────────────┬──────────────┬─────────────┬────────────┐
+  │ Metric              │ MedTalk (RF) │ TalkToModel │ XGBoost    │
+  ├─────────────────────┼──────────────┼─────────────┼────────────┤
+  │ Accuracy            │   89.4%      │   81.2%     │   87.6%    │
+  │ F1-Score            │   0.884      │   0.801     │   0.871    │
+  │ AUROC               │   0.921      │   0.894     │   0.914    │
+  │ AUC-ROC (SMOTE ver) │   0.991      │     —       │     —      │
+  │ Brier Score ↓       │   0.142      │   0.189     │   0.167    │
+  │ Calibration Slope   │   0.98       │   1.23      │   1.15     │
+  └─────────────────────┴──────────────┴─────────────┴────────────┘
+
+5.2  Clinical User Study (N=32 healthcare professionals)
+  ┌─────────────────────┬──────────┬─────────────┬─────────┐
+  │ Metric              │ MedTalk  │ TalkToModel │ p-value │
+  ├─────────────────────┼──────────┼─────────────┼─────────┤
+  │ Comprehension Rate  │  94.2%   │   73.1%     │ <0.001  │
+  │ Task Completion     │  88.4%   │   65.3%     │ <0.001  │
+  │ Mean Time (seconds) │  63.2    │  134.7      │ <0.001  │
+  │ Trust (Likert 1-7)  │   6.2    │    4.1      │ <0.001  │
+  └─────────────────────┴──────────┴─────────────┴─────────┘
+
+
+SECTION 6 — TECHNICAL SCOPE AND LIMITATIONS
+================================================================================
+
+6.1  SCOPE
+  • Primary clinical application: Type 2 diabetes risk stratification
+  • Validated clinical user population: Doctors, nurses, and medical trainees
+  • Primary deployment environment: Web browser (Streamlit); CPU-compatible
+  • Cross-domain configurations: Healthcare, Finance, Judiciary, Insurance
+
+6.2  LIMITATIONS
+  • Single external dataset for healthcare (PIDD); broader clinical validation
+    on diverse ethnic populations is required before production deployment
+  • Synthetic cross-domain datasets for finance and judiciary; real-world
+    institutional data partnerships are needed for full validation
+  • Static feature vectors only; temporal disease progression is not modelled
+  • User study population is from a single institution; multi-site studies
+    are planned as future work
+
+6.3  FUTURE SCOPE
+  • Federated learning integration for multi-institution training without
+    sharing raw patient data
+  • Temporal modelling with LSTM + SHAP for time-series EHR data
+  • Mobile interface (Progressive Web App) for point-of-care deployment
+  • FDA 510(k) formal submission pathway
+  • Partnership with financial/judicial institutions for real-world validation
+
+
+SECTION 7 — REGULATORY COMPLIANCE FRAMEWORK
+================================================================================
+
+MedTalk is architected for compliance with:
+
+  ┌──────────────────────────┬───────────────────────────────────────────┐
+  │ Regulation               │ MedTalk Compliance Mechanism              │
+  ├──────────────────────────┼───────────────────────────────────────────┤
+  │ FDA 510(k) / SaMD        │ Deterministic RF; full audit trail;       │
+  │                          │ formal validation suite                   │
+  │ EU AI Act Article 6      │ Transparency via SHAP; explainability     │
+  │                          │ report per decision; human oversight mode  │
+  │ SEC XAI Mandate (2023)   │ SHAP-based attribution logged per         │
+  │                          │ algorithmic decision                      │
+  │ FCRA / FHA / ECOA        │ EDAQ fairness guardrails; protected-      │
+  │ (Fair Lending)           │ attribute exclusion at Step 3             │
+  │ HIPAA                    │ Local-only deployment; no PHI transmitted │
+  └──────────────────────────┴───────────────────────────────────────────┘
+
+
+================================================================================
+END OF PROJECT DESCRIPTION
+================================================================================
+Document: Description.txt | Version 1.0 | MedTalk Major Project | KIET / AKTU
+================================================================================

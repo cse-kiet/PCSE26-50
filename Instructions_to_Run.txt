@@ -1,0 +1,552 @@
+================================================================================
+                     INSTRUCTIONS TO RUN — MEDTALK
+================================================================================
+
+Document Title : Instructions to Run
+Project        : MedTalk: Explanation-Driven Adaptive Questioning for
+                 Responsible Interpretable AI Across Regulated Sectors
+Institution    : KIET Group of Institutions, Ghaziabad (AKTU)
+Prepared By    : Ujjwal Tomar · Yash Singhal · Tushar Singh
+Supervisor     : Prof. Gaurav Parashar, Assistant Professor, CSE
+Version        : 1.0 | May 2026
+
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+  PART A — SYSTEM REQUIREMENTS
+  PART B — INSTALLATION
+  PART C — DATASET SETUP
+  PART D — TRAINING THE MODEL
+  PART E — RUNNING THE APPLICATION
+  PART F — USING THE INTERFACE
+  PART G — OUTPUT FORMAT AND RESULT INTERPRETATION
+  PART H — RUNNING THE JUPYTER NOTEBOOKS
+  PART I — CROSS-DOMAIN CONFIGURATION
+  PART J — TROUBLESHOOTING
+  PART K — UNINSTALLATION
+
+================================================================================
+PART A — SYSTEM REQUIREMENTS
+================================================================================
+
+A.1  MINIMUM HARDWARE REQUIREMENTS
+------------------------------------
+  Processor     : Intel Core i5 (6th gen) / AMD Ryzen 5 or equivalent
+  RAM           : 8 GB (16 GB recommended for notebook experiments)
+  Storage       : 2 GB free disk space
+  GPU           : NOT required — MedTalk runs entirely on CPU
+  Internet      : Required for initial installation only
+  Display       : 1280×720 minimum resolution (for Streamlit UI)
+
+A.2  SUPPORTED OPERATING SYSTEMS
+----------------------------------
+  • Ubuntu 20.04 LTS / 22.04 LTS  [Recommended]
+  • Windows 10 / 11 (64-bit)
+  • macOS 12 Monterey or later
+  • Any OS supporting Python 3.9+
+
+A.3  SOFTWARE PREREQUISITES
+-----------------------------
+  • Python 3.9 or 3.10 (strictly; 3.11 may have minor SHAP compatibility issues)
+  • pip 23.0 or later
+  • git (for repository cloning)
+  • Jupyter Notebook or JupyterLab (optional, for notebook experiments)
+  • A modern web browser (Chrome, Firefox, or Edge — for the Streamlit UI)
+
+
+================================================================================
+PART B — INSTALLATION
+================================================================================
+
+B.1  STEP 1: CLONE THE REPOSITORY
+------------------------------------
+  Open a terminal and run:
+
+    git clone https://github.com/[team-repo]/medtalk.git
+    cd medtalk
+
+  If you received the project as a ZIP file:
+    - Extract the ZIP to a folder of your choice.
+    - Open a terminal and navigate (cd) to that folder.
+
+B.2  STEP 2: CREATE A VIRTUAL ENVIRONMENT
+------------------------------------------
+  It is strongly recommended to use a virtual environment to avoid
+  dependency conflicts with other Python projects.
+
+  On Linux / macOS:
+    python3 -m venv medtalk_env
+    source medtalk_env/bin/activate
+
+  On Windows:
+    python -m venv medtalk_env
+    medtalk_env\Scripts\activate
+
+  You should see (medtalk_env) at the beginning of your terminal prompt,
+  confirming the environment is active.
+
+  ALTERNATIVE (Conda users):
+    conda env create -f supporting_files/environment.yml
+    conda activate medtalk
+
+B.3  STEP 3: INSTALL DEPENDENCIES
+------------------------------------
+  With the virtual environment active, run:
+
+    pip install --upgrade pip
+    pip install -r supporting_files/requirements.txt
+
+  This will install the following core libraries (among others):
+    • scikit-learn        — Random Forest, preprocessing, metrics
+    • shap                — SHAP TreeExplainer and visualisation
+    • lime                — LIME tabular explainer
+    • imbalanced-learn    — SMOTE for class balancing
+    • streamlit           — Web application framework
+    • pandas / numpy      — Data processing
+    • matplotlib / seaborn / plotly — Visualisation
+    • xgboost             — Baseline comparison model
+    • scipy / joblib      — Statistical tools and model serialisation
+
+  Expected installation time: 5–10 minutes on a standard connection.
+
+B.4  VERIFY INSTALLATION
+--------------------------
+  To confirm all libraries are correctly installed:
+
+    python -c "import sklearn, shap, lime, streamlit, pandas, numpy; print('All OK')"
+
+  Expected output: All OK
+
+  To check specific versions:
+    python -c "import sklearn; print(sklearn.__version__)"
+    python -c "import shap; print(shap.__version__)"
+    python -c "import streamlit; print(streamlit.__version__)"
+
+
+================================================================================
+PART C — DATASET SETUP
+================================================================================
+
+C.1  PRIMARY DATASET (AUTO-INCLUDED)
+--------------------------------------
+  The Pima Indians Diabetes Dataset is included in the repository at:
+    data/pima_indians_diabetes.csv
+
+  No additional download is required. The dataset is freely available from
+  the UCI Machine Learning Repository under a public domain licence.
+
+C.2  DATASET VERIFICATION
+---------------------------
+  To confirm the dataset is correctly placed:
+
+    python -c "
+    import pandas as pd
+    df = pd.read_csv('data/pima_indians_diabetes.csv')
+    print(f'Rows: {len(df)} | Columns: {list(df.columns)}')
+    print(df.head(3))
+    "
+
+  Expected output: 768 rows, columns:
+  [Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI,
+   DiabetesPedigreeFunction, Age, Outcome]
+
+C.3  SYNTHETIC CROSS-DOMAIN DATASETS
+--------------------------------------
+  Included at:
+    data/synthetic/finance_synthetic.csv     (N=500)
+    data/synthetic/judiciary_synthetic.csv   (N=400)
+    data/synthetic/insurance_synthetic.csv   (N=350)
+
+  These are generated from published statistical distributions (German Credit
+  Dataset structure, COMPAS study structure) and contain no real personal data.
+
+
+================================================================================
+PART D — TRAINING THE MODEL
+================================================================================
+
+D.1  TRAINING FROM SCRATCH
+----------------------------
+  To train the Random Forest model on the Pima dataset:
+
+    python src/model_training.py
+
+  This script performs the following steps automatically:
+    1. Loads and preprocesses the PIDD dataset
+    2. Replaces zero values with NaN and imputes with column medians
+    3. Applies StandardScaler normalisation
+    4. Applies SMOTE to balance the minority (diabetic) class
+    5. Performs RandomizedSearchCV hyperparameter optimisation (200 iterations,
+       3-fold cross-validation, optimising for AUROC)
+    6. Trains the final Random Forest with optimal hyperparameters
+    7. Applies Platt Scaling calibration
+    8. Evaluates on the held-out test set (15% stratified split)
+    9. Saves the trained model to: models/medtalk_rf_model.pkl
+    10. Saves the calibrated model to: models/calibrated_model.pkl
+    11. Prints a full evaluation report (accuracy, F1, AUROC, Brier score,
+        calibration slope) to the terminal
+
+  Expected training time: 3–8 minutes on CPU.
+
+D.2  USING PRETRAINED MODELS (SKIP TRAINING)
+---------------------------------------------
+  Pre-trained model files are included in the models/ directory:
+    models/medtalk_rf_model.pkl        ← Standard trained model
+    models/calibrated_model.pkl        ← Platt-calibrated version
+
+  If these files are present, the application loads them automatically.
+  You do NOT need to retrain unless you wish to experiment with different
+  hyperparameters or a new dataset.
+
+D.3  TRAINING ON A CUSTOM DATASET
+-----------------------------------
+  To train on your own tabular dataset:
+    1. Place your CSV file in the data/ directory.
+    2. Edit src/model_training.py — update the DATA_PATH variable and
+       the TARGET_COLUMN variable at the top of the script.
+    3. Run: python src/model_training.py
+  
+  Note: Ensure your dataset has no PII columns included in features.
+
+
+================================================================================
+PART E — RUNNING THE APPLICATION
+================================================================================
+
+E.1  LAUNCH THE STREAMLIT WEB APP
+-----------------------------------
+  Ensure your virtual environment is active, then run:
+
+    streamlit run src/app.py
+
+  The terminal will display output similar to:
+
+    You can now view your Streamlit app in your browser.
+    Local URL: http://localhost:8501
+    Network URL: http://192.168.x.x:8501
+
+  Open your web browser and navigate to: http://localhost:8501
+
+E.2  RUNNING ON A SPECIFIC PORT
+---------------------------------
+  If port 8501 is in use:
+
+    streamlit run src/app.py --server.port 8502
+
+E.3  RUNNING ON A REMOTE SERVER (for sharing)
+----------------------------------------------
+  On the server:
+    streamlit run src/app.py --server.address 0.0.0.0 --server.port 8501
+
+  Access from another machine: http://[server-ip]:8501
+
+  Note: Ensure port 8501 is open in your firewall rules.
+
+E.4  STOPPING THE APPLICATION
+-------------------------------
+  Press Ctrl+C in the terminal where Streamlit is running.
+
+
+================================================================================
+PART F — USING THE INTERFACE
+================================================================================
+
+The MedTalk web interface guides the user through a five-step patient journey:
+
+  STEP 1 — DOMAIN SELECTION
+    Select the domain from the top navigation:
+    Healthcare (default) | Finance | Judiciary | Insurance
+
+  STEP 2 — FEATURE INPUT
+    Enter the patient/applicant's clinical or demographic values.
+    For Healthcare (PIDD), the input fields are:
+      • Number of Pregnancies (integer, 0–17)
+      • Glucose Level (mg/dL, 44–199)
+      • Blood Pressure (mm Hg, 24–122)
+      • Skin Thickness (mm, 7–99)
+      • Insulin Level (μU/ml, 14–846)
+      • BMI (kg/m², 18.2–67.1)
+      • Diabetes Pedigree Function (0.078–2.42)
+      • Age (years, 21–81)
+
+  STEP 3 — RISK ASSESSMENT
+    Click "Assess Risk."
+    MedTalk will display:
+      • Risk probability score (0.00–1.00)
+      • Risk category badge: LOW / MODERATE / HIGH
+      • SHAP waterfall plot (feature contributions for this individual)
+      • LIME explanation bar chart (local surrogate approximation)
+      • Fidelity comparison (which explanation was selected and why)
+
+  STEP 4 — EDAQ DIALOGUE
+    The EDAQ algorithm generates up to 5 prioritised follow-up questions.
+    Each question card shows:
+      • The follow-up question in natural language
+      • Which feature it targets
+      • The SHAP impact percentage for that feature
+      • Uncertainty score (why this was prioritised)
+      • A text input to answer the question with updated values
+    Click "Refine Assessment" to recompute the prediction with new values.
+
+  STEP 5 — AUDIT TRAIL
+    After assessment, the full audit log is available:
+      • Download as CSV (for regulatory filing)
+      • Download as PDF report (for clinical records)
+    The log includes: timestamp, input features, SHAP values, explanation
+    selected, EDAQ questions generated, user responses, and final risk score.
+
+
+================================================================================
+PART G — OUTPUT FORMAT AND RESULT INTERPRETATION
+================================================================================
+
+G.1  RISK SCORE
+-----------------
+  Type    : Float, range [0.00, 1.00]
+  Meaning : Calibrated probability that the patient has diabetes
+  Example : 0.73 = 73% predicted probability of diabetes
+
+G.2  RISK CATEGORY
+-------------------
+  The continuous score is mapped to three clinical categories:
+    LOW      : P < 0.30  — Standard care; routine follow-up in 12 months
+    MODERATE : 0.30 ≤ P < 0.65  — Enhanced monitoring; lifestyle counselling
+    HIGH     : P ≥ 0.65  — Immediate clinical review; confirmatory HbA1c test
+
+  Note: These thresholds are configurable in src/domain_config/healthcare_config.json
+
+G.3  SHAP WATERFALL PLOT
+--------------------------
+  Visual format: Horizontal bar chart
+  • Red bars: Features pushing the prediction TOWARD diabetes (positive SHAP)
+  • Blue bars: Features pulling the prediction AWAY from diabetes (negative SHAP)
+  • Bar length: Magnitude of feature contribution
+  • Starting point (E[f(x)]): Base rate (population mean prediction)
+  • End point (f(x)): Final prediction for this individual
+  The waterfall shows exactly how each feature changed the risk score.
+
+G.4  EDAQ QUESTION CARDS
+--------------------------
+  Each card displays:
+    Field               : Meaning
+    ─────────────────── : ─────────────────────────────────────────
+    Question Text        : The adaptive follow-up question
+    Target Feature       : Which model feature this question addresses
+    SHAP Impact          : How much this feature changed the prediction (%)
+    Uncertainty Score    : Confidence in the current feature value (0–1)
+    Priority Rank        : Order of clinical importance (1 = highest)
+    Modifiable           : Whether this feature can be changed by intervention
+
+G.5  AUDIT LOG (CSV FORMAT)
+-----------------------------
+  The downloadable audit_log.csv has the following columns:
+    timestamp            : ISO 8601 datetime of the session
+    session_id           : Unique identifier for this patient session
+    domain               : healthcare / finance / judiciary / insurance
+    input_features       : JSON dict of all input feature values
+    raw_prediction       : Float probability before calibration
+    calibrated_prediction: Float probability after Platt Scaling
+    risk_category        : LOW / MODERATE / HIGH
+    explanation_selected : SHAP or LIME (whichever had higher fidelity)
+    shap_values          : JSON dict of SHAP values per feature
+    edaq_questions       : JSON list of questions generated by EDAQ
+    user_responses       : JSON dict of updated feature values (if provided)
+    refined_prediction   : Updated probability after dialogue (if applicable)
+    fairness_violations  : Count of discriminatory questions filtered
+    iteration            : Refinement iteration number (1–3)
+
+G.6  PDF CLINICAL REPORT
+--------------------------
+  The PDF report (generated on request from the UI) includes:
+    • Patient session summary (anonymised — no name/ID stored)
+    • Risk score gauge diagram
+    • SHAP waterfall plot (embedded image)
+    • Feature contribution table
+    • EDAQ dialogue transcript
+    • Final refined prediction
+    • Clinician notes field (editable before download)
+    • Regulatory compliance statement
+    • Timestamp and session ID for governance records
+
+
+================================================================================
+PART H — RUNNING THE JUPYTER NOTEBOOKS
+================================================================================
+
+  The notebooks/ directory contains five analysis notebooks that document
+  the full research pipeline. These are for academic review and experimentation,
+  not required for running the main application.
+
+  H.1  LAUNCH JUPYTER
+  --------------------
+    With the virtual environment active:
+
+      jupyter lab
+      # or: jupyter notebook
+
+    This opens a browser tab at: http://localhost:8888
+
+  H.2  NOTEBOOK DESCRIPTIONS
+  ----------------------------
+    01_EDA_and_Preprocessing.ipynb
+      — Exploratory data analysis of PIDD
+      — Feature distributions, correlation matrices, missingness analysis
+      — Zero-value imputation strategy
+      — Expected run time: 2–3 minutes
+
+    02_Model_Training_and_Tuning.ipynb
+      — Random Forest baseline → hyperparameter search → optimised model
+      — SMOTE class balancing
+      — Comparison with Logistic Regression and XGBoost
+      — Calibration analysis (reliability diagrams, Brier score)
+      — Expected run time: 15–25 minutes (RandomizedSearchCV)
+
+    03_SHAP_LIME_Analysis.ipynb
+      — Global SHAP summary plots
+      — Local SHAP waterfall plots for individual patients
+      — LIME local explanations
+      — Fidelity-based selection validation
+      — Expected run time: 5–10 minutes
+
+    04_EDAQ_Validation.ipynb
+      — Ablation study: MedTalk with/without EDAQ
+      — EDAQ question generation examples
+      — Fairness guardrail testing (discriminatory question filtering)
+      — Expected run time: 3–5 minutes
+
+    05_Cross_Domain_Validation.ipynb
+      — EDAQ instantiation for Finance, Judiciary, Insurance
+      — Domain constraint adherence evaluation
+      — Modifiability analysis
+      — Expected run time: 5–8 minutes
+
+  H.3  RUNNING ALL NOTEBOOKS IN SEQUENCE (automated)
+  -----------------------------------------------------
+    jupyter nbconvert --to notebook --execute notebooks/*.ipynb
+
+
+================================================================================
+PART I — CROSS-DOMAIN CONFIGURATION
+================================================================================
+
+  MedTalk supports four domains. Each domain is configured through a JSON
+  file in src/domain_config/.
+
+  I.1  SWITCHING DOMAINS IN THE UI
+  ----------------------------------
+    Use the Domain Selector dropdown at the top of the Streamlit interface.
+    All layers (Prediction, Attribution, EDAQ, Interface) automatically
+    reconfigure for the selected domain.
+
+  I.2  CONFIGURATION FILE FORMAT
+  --------------------------------
+    Each config file (e.g., finance_config.json) contains:
+
+    {
+      "domain_name": "finance",
+      "risk_thresholds": {"low": 0.30, "high": 0.65},
+      "features": [
+        {
+          "name": "income",
+          "display_name": "Annual Household Income",
+          "type": "continuous",
+          "units": "USD",
+          "modifiable": true,
+          "protected_attribute": false,
+          "question_template": "What is your current annual household income?",
+          "valid_range": [0, 500000]
+        }
+      ],
+      "protected_attributes": ["race", "gender", "zip_code", "national_origin"],
+      "regulatory_context": "FCRA / Fair Housing Act / ECOA",
+      "audit_requirements": "All loan decisions must log SHAP attribution per ECOA Sec.701"
+    }
+
+  I.3  ADDING A NEW DOMAIN
+  -------------------------
+    1. Create a new JSON config file in src/domain_config/ following the
+       format above.
+    2. Train or load an appropriate model for that domain.
+    3. Add the domain name to the domain selector list in src/app.py.
+    No other code changes are required.
+
+
+================================================================================
+PART J — TROUBLESHOOTING
+================================================================================
+
+  ISSUE: "ModuleNotFoundError: No module named 'shap'"
+  FIX  : Ensure your virtual environment is active.
+         Run: pip install shap
+
+  ISSUE: "SHAP TreeExplainer produces NaN values"
+  FIX  : This typically occurs when the model is loaded without retraining.
+         Run: python src/model_training.py to regenerate a fresh model.
+
+  ISSUE: "Streamlit port 8501 is already in use"
+  FIX  : Run: streamlit run src/app.py --server.port 8502
+         Or kill the existing process: lsof -i :8501 | awk 'NR>1 {print $2}' | xargs kill
+
+  ISSUE: "ValueError: could not convert string to float" in CSV loading
+  FIX  : Ensure the dataset CSV uses standard comma delimiter with no
+         extra headers. Verify with: python -c "import pandas as pd; print(pd.read_csv('data/pima_indians_diabetes.csv').dtypes)"
+
+  ISSUE: "ConvergenceWarning" during model training
+  FIX  : This is a known harmless warning from calibration. It does not
+         affect results. To suppress: add -W ignore to your Python call.
+
+  ISSUE: LIME takes very long to generate
+  FIX  : LIME uses 1000 sample perturbations by default. Reduce in
+         src/explainability.py by changing num_samples=1000 to num_samples=200
+         for faster (less precise) explanations.
+
+  ISSUE: "KeyError" when switching domains
+  FIX  : Ensure the corresponding domain config JSON file exists in
+         src/domain_config/ and is valid JSON (use jsonlint.com to verify).
+
+  ISSUE: Browser shows blank white page after "streamlit run"
+  FIX  : Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac).
+         Alternatively clear browser cache and reload.
+
+
+================================================================================
+PART K — UNINSTALLATION
+================================================================================
+
+  To remove the virtual environment and all installed packages:
+
+  Linux / macOS:
+    deactivate
+    rm -rf medtalk_env
+
+  Windows:
+    deactivate
+    rmdir /s /q medtalk_env
+
+  To remove the project folder entirely:
+    rm -rf medtalk/     # Linux/macOS
+    rmdir /s /q medtalk # Windows
+
+
+================================================================================
+CONTACT / SUPPORT
+================================================================================
+
+  For questions related to this project, contact the development team:
+
+    Ujjwal Tomar   — 2200290100178
+    Yash Singhal   — 2200290100196
+    Tushar Singh   — 2200290100176
+
+  Department of Computer Science & Engineering
+  KIET Group of Institutions, Ghaziabad, U.P.
+  Affiliated to AKTU, Lucknow
+
+  Faculty Supervisor: Prof. Gaurav Parashar (gaurav.parashar@kiet.edu)
+
+================================================================================
+END OF INSTRUCTIONS TO RUN
+================================================================================
+Document: Instructions_to_Run.txt | Version 1.0 | MedTalk | KIET / AKTU 2026
+================================================================================

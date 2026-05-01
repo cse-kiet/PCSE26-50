@@ -1,0 +1,457 @@
+================================================================================
+          SOFTWARE COMPONENTS & LIBRARY MANUAL — MEDTALK
+================================================================================
+
+Document Title : Software Components and Library Manual
+Project        : MedTalk: Explanation-Driven Adaptive Questioning (EDAQ)
+Institution    : KIET Group of Institutions, Ghaziabad (AKTU)
+Prepared By    : Ujjwal Tomar · Yash Singhal · Tushar Singh
+Supervisor     : Prof. Gaurav Parashar, Assistant Professor, CSE
+Version        : 1.0 | May 2026
+
+================================================================================
+
+INTRODUCTION
+------------
+This manual describes every software component, library, tool, and framework
+used in the MedTalk project. For each component, we document:
+  — Purpose in MedTalk
+  — Key classes/functions/methods used
+  — Configuration decisions and justifications
+  — Official documentation references
+  — Known issues and workarounds
+
+================================================================================
+SECTION 1 — PROGRAMMING LANGUAGE
+================================================================================
+
+1.1  PYTHON 3.10
+-----------------
+  Role      : Primary implementation language for all MedTalk components
+  Version   : 3.10.12 (recommended); 3.9.x also supported
+  Why Python : De facto standard for ML/data science; extensive library
+               ecosystem; native support for Streamlit, SHAP, and LIME
+  
+  Key Python Standard Library Modules Used:
+    json       — Domain configuration file parsing
+    csv        — Audit log reading/writing
+    logging    — Session logging and debug output
+    datetime   — Audit trail timestamps
+    pathlib    — Cross-platform file path handling
+    typing     — Type annotations for code clarity
+    dataclasses— Structured data containers for EDAQ output
+    functools  — Caching for SHAP computations (lru_cache)
+    abc        — Abstract base classes for domain adapters
+  
+  Official Documentation:
+    https://docs.python.org/3.10/
+
+================================================================================
+SECTION 2 — MACHINE LEARNING LIBRARIES
+================================================================================
+
+2.1  SCIKIT-LEARN (sklearn) — Version ≥ 1.3.0
+-----------------------------------------------
+  Role        : Core machine learning library; provides the Random Forest
+                classifier, preprocessing pipeline, and model evaluation
+  
+  Key Classes and Functions Used:
+
+  sklearn.ensemble.RandomForestClassifier
+    — Primary prediction model
+    — Parameters used:
+        n_estimators  = 500        (number of trees)
+        max_depth     = 18         (maximum tree depth, tuned via search)
+        max_features  = 'sqrt'     (feature subset per split)
+        class_weight  = 'balanced' (handles residual class imbalance)
+        random_state  = 42         (reproducibility)
+        n_jobs        = -1         (parallelise across all CPU cores)
+
+  sklearn.model_selection.RandomizedSearchCV
+    — Hyperparameter optimisation
+    — 200 iterations, 3-fold stratified CV, scoring='roc_auc'
+    — Search space:
+        n_estimators:  [100, 200, 300, 400, 500]
+        max_depth:     [8, 10, 12, 15, 18, 20, None]
+        min_samples_split: [2, 5, 10]
+        min_samples_leaf:  [1, 2, 4]
+        max_features:  ['sqrt', 'log2', None]
+
+  sklearn.model_selection.StratifiedKFold
+    — Ensures class proportion maintained across all splits
+
+  sklearn.preprocessing.StandardScaler
+    — Feature normalisation (mean=0, std=1)
+    — Fit on TRAINING SET ONLY; applied to validation and test sets
+
+  sklearn.calibration.CalibratedClassifierCV
+    — Platt Scaling post-hoc probability calibration
+    — method='sigmoid', cv=5
+    — CRITICAL for well-calibrated risk scores (Brier Score reduction)
+
+  sklearn.metrics:
+    — accuracy_score, f1_score, roc_auc_score, average_precision_score,
+      brier_score_loss, confusion_matrix, classification_report
+
+  sklearn.pipeline.Pipeline
+    — Chains preprocessing (imputer → scaler) with model for safe deployment
+    — Prevents data leakage during cross-validation
+
+  Official Documentation:
+    https://scikit-learn.org/stable/documentation.html
+
+2.2  XGBOOST — Version ≥ 1.7.0
+---------------------------------
+  Role        : Gradient boosting baseline for performance comparison
+  
+  Key Classes Used:
+    xgboost.XGBClassifier
+      — eval_metric='logloss', use_label_encoder=False, random_state=42
+      — Used in: 02_Model_Training_and_Tuning.ipynb (Table 5.1 comparison)
+  
+  Note: XGBoost is NOT used in the deployed application; only in research
+  comparison notebooks. Random Forest was chosen for its superior
+  interpretability (SHAP TreeExplainer compatibility) and calibration.
+
+  Official Documentation:
+    https://xgboost.readthedocs.io/
+
+2.3  IMBALANCED-LEARN — Version ≥ 0.11.0
+------------------------------------------
+  Role        : SMOTE (Synthetic Minority Over-sampling Technique) to
+                address class imbalance in PIDD (65% non-diabetic / 35% diabetic)
+  
+  Key Classes Used:
+    imblearn.over_sampling.SMOTE
+      — sampling_strategy='minority' (up-samples diabetic class to match majority)
+      — k_neighbors=5 (nearest neighbours for synthetic sample generation)
+      — random_state=42
+      — APPLIED TO TRAINING SET ONLY (never to validation or test)
+
+  Effect:
+    Before SMOTE: 500 non-diabetic / 268 diabetic
+    After SMOTE:  500 non-diabetic / 500 diabetic (balanced)
+    Result: AUC-ROC improves from 0.921 → 0.991 (SMOTE-optimised model)
+
+  Official Documentation:
+    https://imbalanced-learn.org/stable/
+
+================================================================================
+SECTION 3 — EXPLAINABILITY LIBRARIES
+================================================================================
+
+3.1  SHAP (SHapley Additive exPlanations) — Version ≥ 0.42.0
+--------------------------------------------------------------
+  Authors   : Scott Lundberg, Su-In Lee (University of Washington, 2017)
+  Role      : Primary feature attribution method; provides mathematically
+              grounded local and global explanations using Shapley values
+
+  Theoretical Foundation:
+    SHAP values are based on Shapley values from cooperative game theory.
+    For a prediction f(x), the SHAP value φᵢ for feature i represents
+    the average marginal contribution of feature i across all possible
+    feature orderings. Uniquely, SHAP satisfies:
+      • Efficiency:   Σφᵢ = f(x) - E[f(X)]   (values sum to prediction)
+      • Symmetry:     Equal contributors get equal credit
+      • Nullity:      Zero-contribution features get φ=0
+      • Linearity:    Linear model compositions are respected
+    These properties make SHAP the most theoretically principled XAI method.
+
+  Key Classes and Functions Used:
+
+  shap.TreeExplainer(model)
+    — Exact, O(T × L × D²) algorithm for tree-based models
+    — T=trees, L=leaves, D=max_depth
+    — Returns exact Shapley values (not approximations)
+    — Used for: all primary SHAP explanations in MedTalk
+
+  explainer.shap_values(X)
+    — Returns a 2D array: [n_samples × n_features] of SHAP values
+    — For binary classification: returns list of 2 arrays (one per class)
+    — MedTalk uses: shap_values[1] (positive class = diabetic)
+
+  shap.waterfall_plot(shap.Explanation(...))
+    — Local explanation visualisation for individual predictions
+    — Shows: E[f(x)] → feature contributions → f(x)
+
+  shap.summary_plot(shap_values, X, plot_type='bar')
+    — Global feature importance ranking (mean |SHAP| per feature)
+    — Used in: Research paper Figure 5.3 and notebooks
+
+  shap.dependence_plot(feature_name, shap_values, X)
+    — Shows non-linear feature-prediction relationships
+    — Used in: Glucose and BMI analysis (Figure 5.5)
+
+  Configuration Notes:
+    — check_additivity=False: Suppresses spurious warnings on calibrated models
+    — shap.initjs(): Must be called in Jupyter notebooks before plotting
+    — link='logit': Use for probability-scale visualisation
+
+  Official Documentation:
+    https://shap.readthedocs.io/
+  
+  Citation:
+    Lundberg, S. M., & Lee, S. I. (2017). A Unified Approach to Interpreting
+    Model Predictions. NeurIPS 2017.
+
+3.2  LIME (Local Interpretable Model-Agnostic Explanations) — Version ≥ 0.2.0.1
+----------------------------------------------------------------------------------
+  Authors   : Marco Tulio Ribeiro, Sameer Singh, Carlos Guestrin (UW, 2016)
+  Role      : Secondary feature attribution method; model-agnostic local
+              surrogate approximation; used in fidelity-based selection
+
+  Theoretical Foundation:
+    LIME approximates the complex model f in the local neighbourhood of a
+    prediction x by fitting a sparse linear model g:
+      ξ(x) = argmin_{g ∈ G} L(f, g, πₓ) + Ω(g)
+    where πₓ is a proximity measure and Ω(g) penalises model complexity.
+    The linear surrogate's coefficients are interpretable as feature
+    importances for that specific prediction.
+
+  Key Classes and Functions Used:
+
+  lime.lime_tabular.LimeTabularExplainer(
+      training_data=X_train,
+      feature_names=feature_names,
+      class_names=['Non-Diabetic', 'Diabetic'],
+      mode='classification',
+      discretize_continuous=True
+  )
+    — Creates the LIME explainer fitted to the training distribution
+
+  explainer.explain_instance(
+      data_row=x_instance,
+      predict_fn=model.predict_proba,
+      num_features=8,
+      num_samples=1000,
+      top_labels=1
+  )
+    — Generates a local linear approximation for a single patient
+    — num_samples=1000: Number of perturbed samples for surrogate fitting
+      (reduce to 200 for faster but less precise explanations)
+
+  explanation.as_list()
+    — Returns: [(feature_name, coefficient), ...] sorted by |coefficient|
+
+  explanation.as_pyplot_figure()
+    — Horizontal bar chart of feature importances for this prediction
+
+  Fidelity Computation:
+    MedTalk computes fidelity for both SHAP and LIME on each prediction:
+    fidelity = 1 - mean_squared_error(
+        model.predict_proba(perturbed_samples),
+        surrogate.predict(perturbed_samples)
+    )
+    The explanation with higher fidelity is selected for display.
+
+  Note: LIME is non-deterministic by default. Set random_state in
+  LimeTabularExplainer for reproducible explanations.
+
+  Official Documentation:
+    https://lime-ml.readthedocs.io/
+  
+  Citation:
+    Ribeiro, M. T., Singh, S., & Guestrin, C. (2016). "Why Should I Trust
+    You?": Explaining the Predictions of Any Classifier. KDD 2016.
+
+================================================================================
+SECTION 4 — WEB INTERFACE
+================================================================================
+
+4.1  STREAMLIT — Version ≥ 1.28.0
+-----------------------------------
+  Role      : Python-native web application framework; provides the entire
+              MedTalk user interface without requiring HTML/CSS/JS expertise
+  
+  Key Streamlit APIs Used:
+
+  Layout and Structure:
+    st.set_page_config(layout="wide", page_title="MedTalk")
+    st.sidebar.selectbox()      — Domain selector
+    st.columns([1,2,1])         — Multi-column layout
+    st.tabs(["Risk", "SHAP", "LIME", "Dialogue", "Audit"])  — Tab navigation
+    st.expander("EDAQ Details")  — Collapsible sections
+
+  Input Widgets:
+    st.number_input(label, min_value, max_value, value, step, help)
+    st.slider(label, min_value, max_value, value)
+    st.selectbox(label, options)
+    st.text_input(label, placeholder)
+    st.button("Assess Risk")
+
+  Output:
+    st.metric(label, value, delta)    — KPI card for risk score
+    st.pyplot(fig)                    — Matplotlib/SHAP plots
+    st.plotly_chart(fig)              — Plotly interactive charts
+    st.dataframe(df)                  — Audit log table
+    st.download_button(label, data, file_name, mime)  — CSV/PDF export
+    st.success/warning/error()        — Risk category coloured alerts
+
+  State Management:
+    st.session_state                  — Persists model, audit log across reruns
+
+  Performance:
+    @st.cache_resource                — Caches loaded model (avoids reload)
+    @st.cache_data                    — Caches SHAP computations
+
+  Deployment Note:
+    Streamlit serves on localhost:8501 by default. For production deployment
+    on a hospital intranet, use: streamlit run app.py --server.address 0.0.0.0
+    with appropriate firewall rules and HTTPS reverse proxy (nginx).
+
+  Official Documentation:
+    https://docs.streamlit.io/
+
+================================================================================
+SECTION 5 — DATA HANDLING LIBRARIES
+================================================================================
+
+5.1  PANDAS — Version ≥ 2.0.0
+-------------------------------
+  Role      : Data loading, preprocessing, feature engineering, audit log management
+  
+  Key Functions Used:
+    pd.read_csv()              — Dataset loading
+    df.replace(0, np.nan)      — Zero-value imputation preparation
+    df.fillna(df.median())     — Median imputation for missing values
+    df.describe()              — Statistical summary in EDA notebook
+    df.corr()                  — Feature correlation matrix
+    pd.DataFrame.to_csv()      — Audit log export
+
+5.2  NUMPY — Version ≥ 1.24.0
+-------------------------------
+  Role      : Numerical computation, array operations, probability calculations
+  
+  Key Functions Used:
+    np.array()                 — Feature vector conversion
+    np.where()                 — Conditional risk category assignment
+    np.mean(), np.var()        — Uncertainty quantification in EDAQ
+    np.random.seed(42)         — Global reproducibility
+
+5.3  SCIPY — Version ≥ 1.10.0
+-------------------------------
+  Role      : Statistical tests for user study analysis
+  
+  Key Functions Used:
+    scipy.stats.wilcoxon()     — Non-parametric test for paired user study data
+    scipy.stats.chi2_contingency()  — Chi-square test for comprehension rates
+    scipy.stats.pearsonr()     — Correlation between trust and comprehension
+
+================================================================================
+SECTION 6 — VISUALISATION LIBRARIES
+================================================================================
+
+6.1  MATPLOTLIB — Version ≥ 3.7.0
+------------------------------------
+  Role        : Static plot generation (embedded in SHAP, confusion matrix)
+  Key Usage   : SHAP waterfall plots, confusion matrix heatmaps
+
+6.2  SEABORN — Version ≥ 0.12.0
+----------------------------------
+  Role        : Statistical visualisation (distribution plots, heatmaps)
+  Key Usage   : Feature distribution analysis, correlation heatmap in EDA
+
+6.3  PLOTLY — Version ≥ 5.15.0
+---------------------------------
+  Role        : Interactive visualisations in Streamlit
+  Key Usage   :
+    plotly.graph_objects.Indicator   — Risk gauge diagram
+    plotly.express.bar               — EDAQ priority visualisation
+    plotly.graph_objects.Scatter     — ROC curve plots
+
+================================================================================
+SECTION 7 — REPORTING AND OUTPUT TOOLS
+================================================================================
+
+7.1  REPORTLAB — Version ≥ 4.0.0
+-----------------------------------
+  Role      : PDF clinical report generation
+  
+  Key Classes Used:
+    reportlab.platypus.SimpleDocTemplate  — Document structure
+    reportlab.platypus.Table              — Feature importance table
+    reportlab.platypus.Image              — Embed SHAP plot in PDF
+    reportlab.lib.styles.getSampleStyleSheet — Typography
+
+7.2  JOBLIB — Version ≥ 1.3.0
+-------------------------------
+  Role      : Model serialisation (saving/loading .pkl files)
+  
+  Usage:
+    joblib.dump(model, 'models/medtalk_rf_model.pkl')
+    model = joblib.load('models/medtalk_rf_model.pkl')
+
+================================================================================
+SECTION 8 — DEVELOPMENT TOOLS
+================================================================================
+
+8.1  JUPYTER LAB / NOTEBOOK
+-----------------------------
+  Role      : Interactive research and analysis environment
+  Used For  : EDA, model training experiments, SHAP/LIME analysis notebooks
+
+8.2  PYTEST
+-----------
+  Role      : Automated unit testing
+  Coverage  : Model loading, SHAP computation, EDAQ question generation,
+              fairness guardrails, domain configuration validation
+
+8.3  BLACK
+----------
+  Role      : Automatic code formatting (PEP 8 compliance)
+  Usage     : black src/ --line-length 88
+
+8.4  GIT
+--------
+  Role      : Version control
+  Branch Strategy:
+    main     — Stable release
+    develop  — Active development
+    feature/ — Individual feature branches
+
+================================================================================
+SECTION 9 — QUICK REFERENCE — CORE FUNCTION SIGNATURES
+================================================================================
+
+  # ── Training ─────────────────────────────────────────
+  from sklearn.ensemble import RandomForestClassifier
+  model = RandomForestClassifier(n_estimators=500, max_depth=18,
+                                  class_weight='balanced', random_state=42, n_jobs=-1)
+  model.fit(X_train_smote, y_train_smote)
+
+  # ── SHAP Explanation ──────────────────────────────────
+  import shap
+  explainer = shap.TreeExplainer(model)
+  shap_values = explainer.shap_values(X_instance)  # shape: [1, n_features]
+  top_features = sorted(zip(feature_names, shap_values[1][0]),
+                         key=lambda x: abs(x[1]), reverse=True)[:5]
+
+  # ── LIME Explanation ──────────────────────────────────
+  from lime.lime_tabular import LimeTabularExplainer
+  lime_explainer = LimeTabularExplainer(X_train, feature_names=feature_names,
+                                         class_names=['No Diabetes','Diabetes'],
+                                         mode='classification')
+  lime_exp = lime_explainer.explain_instance(X_instance[0],
+                                               model.predict_proba,
+                                               num_features=8, num_samples=1000)
+  lime_features = dict(lime_exp.as_list())
+
+  # ── EDAQ Call ─────────────────────────────────────────
+  from src.edaq import EDAQ
+  edaq = EDAQ(domain='healthcare')
+  questions = edaq.generate_questions(top_features=top_features,
+                                       feature_values=x_dict,
+                                       uncertainty_scores=uncertainty,
+                                       max_questions=5)
+
+  # ── Model Calibration ─────────────────────────────────
+  from sklearn.calibration import CalibratedClassifierCV
+  calibrated = CalibratedClassifierCV(model, method='sigmoid', cv=5)
+  calibrated.fit(X_val, y_val)
+  prob = calibrated.predict_proba(X_test)[:, 1]
+
+================================================================================
+END OF SOFTWARE AND LIBRARY MANUAL
+================================================================================
+Document: SoftwareManual.txt | Version 1.0 | MedTalk | KIET / AKTU 2026
+================================================================================
